@@ -1,0 +1,15 @@
+# Byte-compiled / Virtual Envs / IDEs
+__pycache__/
+*.py[cod]
+.venv/
+env/
+.env
+.vscode/
+.idea/
+
+# Distribution / Testing
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.coverage
