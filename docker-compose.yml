@@ -1,0 +1,125 @@
+# ─────────────────────────────────────────────────────────────
+#  Task Manager — Docker Compose Orchestration
+#  Services: PostgreSQL · Redis · Django · Celery · Celery Beat
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL Database ──────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-task_manager}
+      POSTGRES_USER: ${POSTGRES_USER:-mirshod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mirshod.0207}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT_EXTERNAL:-5433}:5433"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mirshod} -d ${POSTGRES_DB:-task_manager}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (Celery Broker & Result Backend) ───────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT_EXTERNAL:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Django Web Application ──────────────────────────────
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    environment:
+      # Django
+      DEBUG: ${DEBUG:-1}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-docker-dev-key-change-in-production}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      # Database
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ${POSTGRES_DB:-task_manager}
+      DB_USER: ${POSTGRES_USER:-mirshod}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-mirshod.0207}
+      DB_HOST: db
+      DB_PORT: 5433
+      # Celery
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      # Superuser (auto-created on first run)
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-mirshod}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-mir.khamroev@gmail.com}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-mirshod.0207}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - static_files:/app/staticfiles
+
+  # ── Celery Worker ───────────────────────────────────────
+  celery_worker:
+    build: .
+    restart: unless-stopped
+    entrypoint: []
+    command: >
+      celery -A task_manager worker
+      --loglevel=info
+      --concurrency=2
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ${POSTGRES_DB:-task_manager}
+      DB_USER: ${POSTGRES_USER:-mirshod}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-mirshod.0207}
+      DB_HOST: db
+      DB_PORT: 5433
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-docker-dev-key-change-in-production}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Celery Beat Scheduler ──────────────────────────────
+  celery_beat:
+    build: .
+    restart: unless-stopped
+    entrypoint: []
+    command: >
+      celery -A task_manager beat
+      --loglevel=info
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ${POSTGRES_DB:-task_manager}
+      DB_USER: ${POSTGRES_USER:-mirshod}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-mirshod.0207}
+      DB_HOST: db
+      DB_PORT: 5433
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-docker-dev-key-change-in-production}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_files:
