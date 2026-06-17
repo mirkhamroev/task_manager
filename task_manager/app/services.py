@@ -15,8 +15,9 @@ def _worker_reminder_subject(task, reminder_label):
 
 def _worker_reminder_message(task, reminder_label):
     worker = task.assigned_to
+    user = worker.user
     return (
-        f"Hello {worker.first_name},\n\n"
+        f"Hello {user.first_name},\n\n"
         f"This is a reminder that your task is due in {reminder_label}.\n\n"
         f"Task: {task.title}\n"
         f"Description: {task.description}\n"
@@ -32,13 +33,15 @@ def _manager_due_subject(task):
 
 def _manager_due_message(task):
     worker = task.assigned_to
-    manager = worker.manager_id
+    manager = worker.manager
+    manager_user = manager.user
+    worker_user = worker.user
     return (
-        f"Hello {manager.first_name},\n\n"
+        f"Hello {manager_user.first_name},\n\n"
         "A task assigned to one of your workers has reached its due date.\n\n"
         f"Task: {task.title}\n"
         f"Description: {task.description}\n"
-        f"Worker: {worker.first_name} {worker.last_name} <{worker.email}>\n"
+        f"Worker: {worker_user.first_name} {worker_user.last_name} <{worker_user.email}>\n"
         f"Due date: {timezone.localtime(task.due_date).strftime('%Y-%m-%d %H:%M %Z')}\n"
         f"Status: {task.status}\n"
     )
@@ -49,7 +52,8 @@ def send_worker_task_reminder(task, reminder_label):
     Sends a reminder email to the worker assigned to a task.
     """
 
-    if not task.assigned_to.email:
+    worker_email = task.assigned_to.user.email
+    if not worker_email:
         logger.warning("Task %s worker has no email address.", task.task_id)
         return 0
 
@@ -57,7 +61,7 @@ def send_worker_task_reminder(task, reminder_label):
         subject=_worker_reminder_subject(task, reminder_label),
         message=_worker_reminder_message(task, reminder_label),
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[task.assigned_to.email],
+        recipient_list=[worker_email],
         fail_silently=False,
     )
 
@@ -67,8 +71,9 @@ def send_manager_task_due_email(task):
     Sends an email to the manager when a task reaches its due date.
     """
 
-    manager = task.assigned_to.manager_id
-    if not manager.email:
+    manager = task.assigned_to.manager
+    manager_email = manager.user.email
+    if not manager_email:
         logger.warning("Task %s manager has no email address.", task.task_id)
         return 0
 
@@ -76,6 +81,6 @@ def send_manager_task_due_email(task):
         subject=_manager_due_subject(task),
         message=_manager_due_message(task),
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[manager.email],
+        recipient_list=[manager_email],
         fail_silently=False,
     )

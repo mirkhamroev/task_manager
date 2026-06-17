@@ -1,38 +1,83 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 import enum
 
-# Create your models here.
+
 class Status(enum.Enum):
     PENDING = 'Pending'
     IN_PROGRESS = 'In Progress'
     COMPLETED = 'Completed'
 
+
+class CustomUser(AbstractUser):
+    """
+    Custom user model that adds a role field to distinguish managers from workers.
+    All authentication (login, JWT tokens) goes through this single model.
+    """
+
+    ROLE_MANAGER = 'manager'
+    ROLE_WORKER = 'worker'
+    ROLE_CHOICES = [
+        (ROLE_MANAGER, 'Manager'),
+        (ROLE_WORKER, 'Worker'),
+    ]
+
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    email = models.EmailField(unique=True)
+
+    def __str__(self):
+        return f"{self.username} ({self.get_role_display()})"
+
+    @property
+    def is_manager(self):
+        return self.role == self.ROLE_MANAGER
+
+    @property
+    def is_worker(self):
+        return self.role == self.ROLE_WORKER
+
+
 class Manager(models.Model):
     """
-    Manager model to store manager information. Each manager can have multiple workers.
-    manager_id: Auto-incrementing primary key for the manager.
+    Manager profile linked to a CustomUser.
+    Each manager can have multiple workers.
     """
-    
+
     manager_id = models.AutoField(primary_key=True, unique=True)
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
-    email = models.EmailField(unique=True)
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='manager_profile',
+    )
     dept = models.CharField(max_length=50)
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} — {self.dept}"
+
 
 class Worker(models.Model):
     """
-    Worker model to store worker information. Each worker is assigned to a manager.
-    worker_id: Auto-incrementing primary key for the worker.
-    manager_id: Foreign key to the Manager model, indicating which manager the worker reports to.
+    Worker profile linked to a CustomUser.
+    Each worker is assigned to a manager.
     """
 
     worker_id = models.AutoField(primary_key=True, unique=True)
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
-    email = models.EmailField(unique=True)
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='worker_profile',
+    )
     dept = models.CharField(max_length=50)
-    manager_id = models.ForeignKey(Manager, on_delete=models.CASCADE)
+    manager = models.ForeignKey(
+        Manager,
+        on_delete=models.CASCADE,
+        related_name='workers',
+    )
     role_title = models.CharField(max_length=50)
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} — {self.role_title}"
+
 
 class Task(models.Model):
     """
@@ -46,9 +91,12 @@ class Task(models.Model):
     task_id = models.AutoField(primary_key=True, unique=True)
     title = models.CharField(max_length=100)
     description = models.TextField()
-    assigned_to = models.ForeignKey(Worker, on_delete=models.CASCADE)
+    assigned_to = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name='tasks')
     due_date = models.DateTimeField()
     status = models.CharField(max_length=20, default=Status.PENDING.value)
+
+    def __str__(self):
+        return self.title
 
 
 class TaskNotification(models.Model):

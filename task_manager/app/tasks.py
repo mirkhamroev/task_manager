@@ -36,7 +36,7 @@ def notify_overdue_tasks():
     now = timezone.now()
     overdue_tasks = (
         Task.objects
-        .select_related("assigned_to", "assigned_to__manager_id")
+        .select_related("assigned_to", "assigned_to__user", "assigned_to__manager", "assigned_to__manager__user")
         .filter(due_date__lt=now)
         .exclude(status=Status.COMPLETED.value)
     )
@@ -46,7 +46,9 @@ def notify_overdue_tasks():
 
     for task in overdue_tasks:
         worker = task.assigned_to
-        manager = worker.manager_id
+        worker_user = worker.user
+        manager = worker.manager
+        manager_user = manager.user
 
         logger.warning(
             "Overdue task alert: task_id=%s title=%r due_date=%s status=%r "
@@ -55,12 +57,12 @@ def notify_overdue_tasks():
             task.title,
             task.due_date.isoformat(),
             task.status,
-            worker.first_name,
-            worker.last_name,
-            worker.email,
-            manager.first_name,
-            manager.last_name,
-            manager.email,
+            worker_user.first_name,
+            worker_user.last_name,
+            worker_user.email,
+            manager_user.first_name,
+            manager_user.last_name,
+            manager_user.email,
         )
 
     return {
@@ -74,7 +76,7 @@ def send_task_due_notifications():
     now = timezone.now()
     incomplete_tasks = (
         Task.objects
-        .select_related("assigned_to", "assigned_to__manager_id")
+        .select_related("assigned_to", "assigned_to__user", "assigned_to__manager", "assigned_to__manager__user")
         .exclude(status=Status.COMPLETED.value)
     )
     sent_notifications = 0

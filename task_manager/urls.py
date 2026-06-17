@@ -9,9 +9,16 @@ from rest_framework.permissions import AllowAny
 from rest_framework.renderers import JSONOpenAPIRenderer
 from rest_framework.routers import DefaultRouter
 from rest_framework.schemas import get_schema_view
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
-from task_manager.app.views import ManagerViewSet, TaskViewSet, WorkerViewSet
+from task_manager.app.views import (
+    ManagerViewSet,
+    TaskViewSet,
+    WorkerViewSet,
+    RegisterView,
+    CustomTokenObtainPairView,
+    ProfileView,
+)
 
 
 class PublicAPIRootRouter(DefaultRouter):
@@ -84,11 +91,17 @@ def swagger_ui(request):
 
 urlpatterns = [
     path("", swagger_ui, name="swagger-ui"),
-    path("swagger/", swagger_ui, name="swagger-ui"),
+    path("swagger/", swagger_ui, name="swagger-ui-alt"),
     path("schema/", schema_view, name="openapi-schema"),
     path("admin/", admin.site.urls),
+
+    # Resource APIs
     path("api/", include(router.urls)),
     path("api-auth/", include("rest_framework.urls")),
-    path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+
+    # Auth endpoints
+    path("api/auth/register/", RegisterView.as_view(), name="auth-register"),
+    path("api/auth/login/", CustomTokenObtainPairView.as_view(), name="auth-login"),
+    path("api/auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
+    path("api/auth/profile/", ProfileView.as_view(), name="auth-profile"),
 ]

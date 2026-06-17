@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     "task_manager.app",
 ]
 
+AUTH_USER_MODEL = "app.CustomUser"
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
