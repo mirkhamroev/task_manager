@@ -62,6 +62,8 @@ def send_worker_task_reminder(task, reminder_label):
         message=_worker_reminder_message(task, reminder_label),
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[worker_email],
+        auth_password=settings.EMAIL_HOST_PASSWORD,
+        auth_user=settings.EMAIL_HOST_USER,
         fail_silently=False,
     )
 
@@ -82,6 +84,8 @@ def send_manager_task_due_email(task):
         message=_manager_due_message(task),
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[manager_email],
+        auth_password=settings.EMAIL_HOST_PASSWORD,
+        auth_user=settings.EMAIL_HOST_USER,
         fail_silently=False,
     )
 
@@ -114,6 +118,8 @@ def send_worker_task_assigned_email(task):
         message=message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[worker_email],
+        auth_password=settings.EMAIL_HOST_PASSWORD,
+        auth_user=settings.EMAIL_HOST_USER,
         fail_silently=False,
     )
 
@@ -145,6 +151,8 @@ def send_worker_overdue_email(task):
         message=message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[worker_email],
+        auth_password=settings.EMAIL_HOST_PASSWORD,
+        auth_user=settings.EMAIL_HOST_USER,
         fail_silently=False,
     )
 
@@ -179,5 +187,7 @@ def send_manager_overdue_email(task):
         message=message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[manager_email],
+        auth_password=settings.EMAIL_HOST_PASSWORD,
+        auth_user=settings.EMAIL_HOST_USER,
         fail_silently=False,
     )
