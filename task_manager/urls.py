@@ -22,6 +22,7 @@ from task_manager.app.views import (
 
 
 class PublicAPIRootRouter(DefaultRouter):
+    """Root view that allows anonymous access."""
     APIRootView = type(
         "APIRootView",
         (DefaultRouter.APIRootView,),
