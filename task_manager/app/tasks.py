@@ -6,7 +6,13 @@ from django.db import IntegrityError
 from django.utils import timezone
 
 from .models import Status, Task, TaskNotification
-from .services import send_manager_task_due_email, send_worker_task_reminder
+from .services import (
+    send_manager_task_due_email,
+    send_worker_task_reminder,
+    send_worker_task_assigned_email,
+    send_worker_overdue_email,
+    send_manager_overdue_email,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +38,39 @@ def _record_notification(task, notification_type):
 
 
 @shared_task
+def send_task_assigned_notification(task_id):
+    """
+    Sends an email to the worker when a new task is assigned to them.
+    Called asynchronously after task creation so the API response is not blocked.
+    """
+
+    try:
+        task = (
+            Task.objects
+            .select_related("assigned_to", "assigned_to__user", "assigned_to__manager", "assigned_to__manager__user")
+            .get(pk=task_id)
+        )
+    except Task.DoesNotExist:
+        logger.error("send_task_assigned_notification: Task %s does not exist.", task_id)
+        return {"task_id": task_id, "sent": 0, "error": "Task not found"}
+
+    if not _record_notification(task, TaskNotification.TASK_ASSIGNED):
+        logger.info("Task %s assignment notification already sent.", task_id)
+        return {"task_id": task_id, "sent": 0, "error": "Already notified"}
+
+    sent = send_worker_task_assigned_email(task)
+    logger.info("Task %s assignment notification sent (%s email(s)).", task_id, sent)
+    return {"task_id": task_id, "sent": sent}
+
+
+@shared_task
 def notify_overdue_tasks():
+    """
+    Finds overdue incomplete tasks and sends email notifications
+    to both the assigned worker and their manager.
+    Each notification is sent only once per task (deduplicated via TaskNotification).
+    """
+
     now = timezone.now()
     overdue_tasks = (
         Task.objects
@@ -41,33 +79,23 @@ def notify_overdue_tasks():
         .exclude(status=Status.COMPLETED.value)
     )
     overdue_count = overdue_tasks.count()
+    sent_notifications = 0
 
     logger.warning("Found %s overdue incomplete task(s) at %s.", overdue_count, now.isoformat())
 
     for task in overdue_tasks:
-        worker = task.assigned_to
-        worker_user = worker.user
-        manager = worker.manager
-        manager_user = manager.user
+        # Send overdue email to worker (once per task)
+        if _record_notification(task, TaskNotification.OVERDUE_WORKER):
+            sent_notifications += send_worker_overdue_email(task)
 
-        logger.warning(
-            "Overdue task alert: task_id=%s title=%r due_date=%s status=%r "
-            "worker=%s %s <%s> manager=%s %s <%s>",
-            task.task_id,
-            task.title,
-            task.due_date.isoformat(),
-            task.status,
-            worker_user.first_name,
-            worker_user.last_name,
-            worker_user.email,
-            manager_user.first_name,
-            manager_user.last_name,
-            manager_user.email,
-        )
+        # Send overdue email to manager (once per task)
+        if _record_notification(task, TaskNotification.OVERDUE_MANAGER):
+            sent_notifications += send_manager_overdue_email(task)
 
     return {
         "checked_at": now.isoformat(),
         "overdue_count": overdue_count,
+        "sent_notifications": sent_notifications,
     }
 
 

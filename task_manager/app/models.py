@@ -109,6 +109,9 @@ class TaskNotification(models.Model):
     ONE_DAY = "one_day"
     ONE_HOUR = "one_hour"
     MANAGER_DUE = "manager_due"
+    OVERDUE_WORKER = "overdue_worker"
+    OVERDUE_MANAGER = "overdue_manager"
+    TASK_ASSIGNED = "task_assigned"
 
     NOTIFICATION_TYPES = [
         (ONE_MONTH, "One month before due date"),
@@ -116,6 +119,9 @@ class TaskNotification(models.Model):
         (ONE_DAY, "One day before due date"),
         (ONE_HOUR, "One hour before due date"),
         (MANAGER_DUE, "Manager due-date alert"),
+        (OVERDUE_WORKER, "Worker overdue alert"),
+        (OVERDUE_MANAGER, "Manager overdue alert"),
+        (TASK_ASSIGNED, "Task assignment notification"),
     ]
 
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="notifications")

@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import viewsets, status, permissions, generics
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -12,6 +14,9 @@ from .auth_serializers import (
     CustomTokenObtainPairSerializer,
     UserProfileSerializer,
 )
+from .tasks import send_task_assigned_notification
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -223,6 +228,14 @@ class TaskViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Managers can only assign tasks to their own workers.")
 
         serializer.save(assigned_to=worker)
+        try:
+            send_task_assigned_notification.delay(serializer.instance.pk)
+        except Exception:
+            logger.warning(
+                "Could not queue assignment notification for task %s "
+                "(Celery broker unavailable).",
+                serializer.instance.pk,
+            )
 
     # ------------------------------------------------------------------
     # Update
