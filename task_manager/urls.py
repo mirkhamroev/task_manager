@@ -105,4 +105,8 @@ urlpatterns = [
     path("api/auth/login/", CustomTokenObtainPairView.as_view(), name="auth-login"),
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
     path("api/auth/profile/", ProfileView.as_view(), name="auth-profile"),
+    path("api/auth/login/token/", views.obtain_auth_token),
+    path("api/auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
+    path("swagger/", schema_view, name="swagger-ui"),
+    path("swagger/schema/", schema_view, name="openapi-schema"),
 ]
